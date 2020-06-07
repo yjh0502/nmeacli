@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, io, net::TcpStream, sync::mpsc::TryRecvError};
+use std::{collections::VecDeque, io, net::TcpStream, sync::mpsc, thread};
 
 use anyhow::Error;
 use io::BufRead;
@@ -151,7 +151,9 @@ fn main() -> Result<(), Error> {
 
     let events = Events::new();
 
-    let bufread: io::BufReader<Box<dyn io::Read>> =
+    let (tx, rx) = mpsc::channel();
+
+    let bufread: io::BufReader<Box<dyn io::Read + Send>> =
         match (std::env::var("NMEACLI_ADDR"), std::env::var("NMEACLI_DEV")) {
             (Ok(addr), _) => {
                 let stream = TcpStream::connect(addr)?;
@@ -166,26 +168,39 @@ fn main() -> Result<(), Error> {
             }
         };
 
-    let mut lines = bufread.lines();
-    lines.next();
+    let _thread = thread::spawn(move || {
+        let tx = tx.clone();
+
+        let mut lines = bufread.lines();
+        lines.next();
+
+        for line in lines {
+            let line = line.unwrap();
+            tx.send(line).ok();
+        }
+    });
 
     let mut nmea = Nmea::new();
     let mut messages = VecDeque::new();
 
-    for line in lines {
-        let line = line?;
-        {
+    loop {
+        if let Ok(line) = rx.try_recv() {
             nmea.parse(&line).ok();
-        }
+            {
+                messages.push_front(Text::raw("\n".to_owned()));
+                messages.push_front(Text::raw(line.clone()));
 
-        {
-            messages.push_front(Text::raw("\n".to_owned()));
-            messages.push_front(Text::raw(line.clone()));
-
-            while messages.len() > 100 {
-                messages.pop_back();
+                while messages.len() > 100 {
+                    messages.pop_back();
+                }
             }
-        }
+        };
+
+        if let Ok(Event::Input(input)) = events.next() {
+            if let Key::Char('q') = input {
+                break;
+            }
+        };
 
         terminal.draw(|mut f| {
             let chunks = Layout::default()
@@ -259,16 +274,6 @@ fn main() -> Result<(), Error> {
                 f.render_widget(paragraph, body_rect);
             }
         })?;
-
-        match events.next() {
-            Ok(Event::Input(input)) => {
-                if let Key::Char('q') = input {
-                    break;
-                }
-            }
-            Err(TryRecvError::Disconnected) => break,
-            _ => (),
-        }
     }
 
     terminal.clear()?;
