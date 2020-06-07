@@ -49,7 +49,7 @@ mod util {
         fn default() -> Config {
             Config {
                 exit_key: Key::Char('q'),
-                tick_rate: Duration::from_millis(250),
+                tick_rate: Duration::from_millis(50),
             }
         }
     }
@@ -95,8 +95,8 @@ mod util {
             }
         }
 
-        pub fn next(&self) -> Result<Event<Key>, mpsc::TryRecvError> {
-            self.rx.try_recv()
+        pub fn next(&self) -> Result<Event<Key>, mpsc::RecvError> {
+            self.rx.recv()
         }
 
         pub fn disable_exit_key(&mut self) {
@@ -184,7 +184,7 @@ fn main() -> Result<(), Error> {
     let mut messages = VecDeque::new();
 
     loop {
-        if let Ok(line) = rx.try_recv() {
+        while let Ok(line) = rx.try_recv() {
             nmea.parse(&line).ok();
             {
                 messages.push_front(Text::raw("\n".to_owned()));
@@ -194,13 +194,13 @@ fn main() -> Result<(), Error> {
                     messages.pop_back();
                 }
             }
-        };
+        }
 
         if let Ok(Event::Input(input)) = events.next() {
             if let Key::Char('q') = input {
                 break;
             }
-        };
+        }
 
         terminal.draw(|mut f| {
             let chunks = Layout::default()
