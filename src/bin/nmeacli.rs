@@ -250,8 +250,9 @@ fn main() -> Result<(), Error> {
             {
                 let chunk = chunks[1];
                 let title = format!(
-                    "Satlites (fixed={})",
-                    option_str(nmea.num_of_fix_satellites.map(|v| v.to_string()))
+                    "Satlites (fixed={}, total={})",
+                    option_str(nmea.num_of_fix_satellites.map(|v| v.to_string())),
+                    nmea.satellites.len(),
                 );
                 let block = Block::default().title(&title).borders(Borders::TOP);
 
