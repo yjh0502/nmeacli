@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, io, net::TcpStream};
+use std::{collections::VecDeque, io, net::TcpStream, sync::mpsc::TryRecvError};
 
 use anyhow::Error;
 use io::BufRead;
@@ -95,8 +95,8 @@ mod util {
             }
         }
 
-        pub fn next(&self) -> Result<Event<Key>, mpsc::RecvError> {
-            self.rx.recv()
+        pub fn next(&self) -> Result<Event<Key>, mpsc::TryRecvError> {
+            self.rx.try_recv()
         }
 
         pub fn disable_exit_key(&mut self) {
@@ -260,14 +260,17 @@ fn main() -> Result<(), Error> {
             }
         })?;
 
-        /*
-        if let Event::Input(input) = events.next()? {
-            if let Key::Char('q') = input {
-                break;
+        match events.next() {
+            Ok(Event::Input(input)) => {
+                if let Key::Char('q') = input {
+                    break;
+                }
             }
+            Err(TryRecvError::Disconnected) => break,
+            _ => (),
         }
-        */
     }
 
+    terminal.clear()?;
     Ok(())
 }
