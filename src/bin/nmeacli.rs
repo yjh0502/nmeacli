@@ -250,7 +250,7 @@ fn main() -> Result<(), Error> {
             {
                 let chunk = chunks[1];
                 let title = format!(
-                    "Satlites (fixed={}, total={})",
+                    "Satellites (fixed={}, total={})",
                     option_str(nmea.num_of_fix_satellites.map(|v| v.to_string())),
                     nmea.satellites.len(),
                 );
