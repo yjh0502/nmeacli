@@ -7,7 +7,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nmea = { path = "../rust-nmea" }
+nmea = "0"
 tui = "0.9.5"
 anyhow = "1.0.31"
 termion = "1.5.5"
