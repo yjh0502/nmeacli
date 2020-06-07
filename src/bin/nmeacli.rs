@@ -90,7 +90,7 @@ fn main() -> Result<(), Error> {
                     [
                         Constraint::Length(5),
                         Constraint::Min(15),
-                        Constraint::Min(10),
+                        Constraint::Length(10),
                     ]
                     .as_ref(),
                 )
