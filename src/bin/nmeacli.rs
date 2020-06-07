@@ -7,6 +7,7 @@ use termion::{event::Key, input::MouseTerminal, raw::IntoRawMode, screen::Altern
 use tui::{
     backend::TermionBackend,
     layout::{Constraint, Direction, Layout},
+    style::{Color, Style},
     widgets::{Block, Borders, Paragraph, Text},
     Terminal,
 };
@@ -109,6 +110,8 @@ mod util {
     }
 }
 
+use chrono::DateTime;
+use chrono::{Local, SecondsFormat};
 use util::*;
 
 fn datetime_str(nmea: &Nmea) -> Option<String> {
@@ -187,8 +190,11 @@ fn main() -> Result<(), Error> {
         while let Ok(line) = rx.try_recv() {
             nmea.parse(&line).ok();
             {
-                messages.push_front(Text::raw("\n".to_owned()));
-                messages.push_front(Text::raw(line.clone()));
+                let local: DateTime<Local> = Local::now();
+                let time_str = local.to_rfc3339_opts(SecondsFormat::Secs, true);
+
+                messages.push_front(Text::raw(format!(" {}\n", line)));
+                messages.push_front(Text::styled(time_str, Style::new().fg(Color::DarkGray)));
 
                 while messages.len() > 100 {
                     messages.pop_back();
@@ -217,7 +223,7 @@ fn main() -> Result<(), Error> {
 
             {
                 let chunk = chunks[0];
-                let block = Block::default().title("Status").borders(Borders::ALL);
+                let block = Block::default().title("Status").borders(Borders::TOP);
 
                 let mut msgs = Vec::new();
 
@@ -247,7 +253,7 @@ fn main() -> Result<(), Error> {
                     "Satlites (fixed={})",
                     option_str(nmea.num_of_fix_satellites.map(|v| v.to_string()))
                 );
-                let block = Block::default().title(&title).borders(Borders::ALL);
+                let block = Block::default().title(&title).borders(Borders::TOP);
 
                 let mut msgs = Vec::new();
 
@@ -256,7 +262,7 @@ fn main() -> Result<(), Error> {
                 }
 
                 let body_rect = block.inner(chunk);
-                let paragraph = Paragraph::new(msgs.iter()).wrap(true);
+                let paragraph = Paragraph::new(msgs.iter()).wrap(false);
 
                 f.render_widget(block, chunk);
                 f.render_widget(paragraph, body_rect);
@@ -265,10 +271,10 @@ fn main() -> Result<(), Error> {
             {
                 let chunk = chunks[2];
 
-                let block = Block::default().title("Messages").borders(Borders::ALL);
+                let block = Block::default().title("Messages").borders(Borders::TOP);
 
                 let body_rect = block.inner(chunk);
-                let paragraph = Paragraph::new(messages.iter()).wrap(true);
+                let paragraph = Paragraph::new(messages.iter()).wrap(false);
 
                 f.render_widget(block, chunk);
                 f.render_widget(paragraph, body_rect);
