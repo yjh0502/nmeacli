@@ -2,7 +2,7 @@
 
 nmeacli is a TUI-based NMEA data stream visualizer.
 
-[demo.gif](./static/demo.gif)
+![demo.gif](./static/demo.gif)
 
 ```
 # read from serial device
