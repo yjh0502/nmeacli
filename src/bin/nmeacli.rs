@@ -43,10 +43,6 @@ fn option_str(s: Option<String>) -> String {
     }
 }
 
-pub fn tcpaddr() -> String {
-    std::env::var("NMEACLI_ADDR").unwrap()
-}
-
 fn main() -> Result<(), Error> {
     // Terminal initialization
     let stdout = io::stdout().into_raw_mode()?;
@@ -59,8 +55,20 @@ fn main() -> Result<(), Error> {
 
     let events = Events::new();
 
-    let stream = TcpStream::connect(tcpaddr())?;
-    let bufread = std::io::BufReader::new(stream);
+    let bufread: io::BufReader<Box<dyn io::Read>> =
+        match (std::env::var("NMEACLI_ADDR"), std::env::var("NMEACLI_DEV")) {
+            (Ok(addr), _) => {
+                let stream = TcpStream::connect(addr)?;
+                io::BufReader::new(Box::new(stream))
+            }
+            (_, Ok(dev)) => {
+                let file = std::fs::File::open(dev)?;
+                io::BufReader::new(Box::new(file))
+            }
+            _ => {
+                panic!("NMEACLI_ADDR or NMEACLI_DEV should be specified");
+            }
+        };
 
     let mut lines = bufread.lines();
     lines.next();
