@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, io, net::TcpStream, sync::mpsc, thread};
+use std::{io, net::TcpStream, sync::mpsc, thread};
 
 use anyhow::Error;
 use io::BufRead;
@@ -8,7 +8,8 @@ use tui::{
     backend::TermionBackend,
     layout::{Constraint, Direction, Layout},
     style::{Color, Style},
-    widgets::{Block, Borders, Paragraph, Text},
+    text::{Span, Spans},
+    widgets::{Block, Borders, Paragraph, Wrap},
     Terminal,
 };
 
@@ -184,20 +185,24 @@ fn main() -> Result<(), Error> {
     });
 
     let mut nmea = Nmea::new();
-    let mut messages = VecDeque::new();
+    let mut messages = Vec::new();
 
     loop {
         while let Ok(line) = rx.try_recv() {
-            nmea.parse(&line).ok();
-            {
+            if nmea.parse(&line).is_ok() {
                 let local: DateTime<Local> = Local::now();
                 let time_str = local.to_rfc3339_opts(SecondsFormat::Secs, true);
 
-                messages.push_front(Text::raw(format!(" {}\n", line)));
-                messages.push_front(Text::styled(time_str, Style::new().fg(Color::DarkGray)));
+                messages.insert(
+                    0,
+                    Spans::from(vec![
+                        Span::styled(time_str, Style::default().fg(Color::DarkGray)),
+                        Span::raw(format!(" {}\n", line.trim())),
+                    ]),
+                );
 
                 while messages.len() > 100 {
-                    messages.pop_back();
+                    messages.pop();
                 }
             }
         }
@@ -208,14 +213,14 @@ fn main() -> Result<(), Error> {
             }
         }
 
-        terminal.draw(|mut f| {
+        terminal.draw(|f| {
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints(
                     [
                         Constraint::Length(5),
                         Constraint::Min(15),
-                        Constraint::Length(10),
+                        Constraint::Length(20),
                     ]
                     .as_ref(),
                 )
@@ -227,21 +232,21 @@ fn main() -> Result<(), Error> {
 
                 let mut msgs = Vec::new();
 
-                msgs.push(Text::raw(format!(
+                msgs.push(Spans::from(format!(
                     "datetime   : {}\n",
                     option_str(datetime_str(&nmea)),
                 )));
-                msgs.push(Text::raw(format!(
+                msgs.push(Spans::from(format!(
                     "latlonalt  : {}\n",
                     option_str(latlonalt_str(&nmea)),
                 )));
-                msgs.push(Text::raw(format!(
+                msgs.push(Spans::from(format!(
                     "dop (h/v/p): {}\n",
                     option_str(dop_str(&nmea)),
                 )));
 
                 let body_rect = block.inner(chunk);
-                let paragraph = Paragraph::new(msgs.iter()).wrap(true);
+                let paragraph = Paragraph::new(msgs).wrap(Wrap { trim: false });
 
                 f.render_widget(block, chunk);
                 f.render_widget(paragraph, body_rect);
@@ -249,21 +254,21 @@ fn main() -> Result<(), Error> {
 
             {
                 let chunk = chunks[1];
-                let title = format!(
+                let title = Span::raw(format!(
                     "Satellites (fixed={}, total={})",
                     option_str(nmea.num_of_fix_satellites.map(|v| v.to_string())),
                     nmea.satellites.len(),
-                );
-                let block = Block::default().title(&title).borders(Borders::TOP);
+                ));
+                let block = Block::default().title(title).borders(Borders::TOP);
 
                 let mut msgs = Vec::new();
 
                 for sat in &nmea.satellites {
-                    msgs.push(Text::raw(format!("{}\n", sat)));
+                    msgs.push(Spans::from(format!("{}\n", sat)));
                 }
 
                 let body_rect = block.inner(chunk);
-                let paragraph = Paragraph::new(msgs.iter()).wrap(false);
+                let paragraph = Paragraph::new(msgs).wrap(Wrap { trim: false });
 
                 f.render_widget(block, chunk);
                 f.render_widget(paragraph, body_rect);
@@ -275,7 +280,7 @@ fn main() -> Result<(), Error> {
                 let block = Block::default().title("Messages").borders(Borders::TOP);
 
                 let body_rect = block.inner(chunk);
-                let paragraph = Paragraph::new(messages.iter()).wrap(false);
+                let paragraph = Paragraph::new(messages.clone()).wrap(Wrap { trim: false });
 
                 f.render_widget(block, chunk);
                 f.render_widget(paragraph, body_rect);

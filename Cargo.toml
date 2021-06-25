@@ -8,8 +8,9 @@ edition = "2018"
 
 [dependencies]
 nmea = { git = "https://github.com/AeroRust/nmea" }
-tui = "0.9.5"
-anyhow = "1.0.31"
-termion = "1.5.5"
-chrono = "0.4.11"
-ublox = "0.2.0"
+tui = "0.15.0"
+anyhow = "1.0.41"
+termion = "1.5.6"
+chrono = "0.4.19"
+ublox = "0.2.2"
+lexical-core = "0.7.6"

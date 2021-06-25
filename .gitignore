@@ -1,2 +1,5 @@
 /target
 msg.bin
+
+# Local Netlify folder
+.netlify
