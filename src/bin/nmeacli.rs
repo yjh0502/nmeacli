@@ -111,15 +111,23 @@ mod util {
     }
 }
 
-use chrono::DateTime;
-use chrono::{Local, SecondsFormat};
+use chrono::{DateTime, Datelike, NaiveDate, NaiveDateTime, Timelike};
+use chrono::{Local, SecondsFormat, Utc};
 use util::*;
 
-fn datetime_str(nmea: &Nmea) -> Option<String> {
-    let date = nmea.fix_date?;
-    let time = nmea.fix_time?;
+fn datetime_str(nmea: &Nmea, rmc_datetime: NaiveDateTime) -> Option<String> {
+    let fix_date = nmea.fix_date?;
+    let date = NaiveDate::from_ymd(fix_date.year() + 2000, fix_date.month(), fix_date.day());
+    let datetime = date.and_time(nmea.fix_time?);
 
-    Some(format!("{} {}", date, time))
+    let diff = rmc_datetime - datetime;
+
+    Some(format!(
+        "{} / diff={} / {}",
+        datetime,
+        diff,
+        datetime.nanosecond()
+    ))
 }
 
 fn latlonalt_str(nmea: &Nmea) -> Option<String> {
@@ -179,18 +187,19 @@ fn main() -> Result<(), Error> {
         lines.next();
 
         for line in lines {
+            let local: DateTime<Local> = Local::now();
             let line = line.unwrap();
-            tx.send(line).ok();
+            tx.send((local, line)).ok();
         }
     });
 
     let mut nmea = Nmea::new();
     let mut messages = Vec::new();
+    let mut rmc_datetime = Utc::now().naive_utc();
 
     loop {
-        while let Ok(line) = rx.try_recv() {
-            if nmea.parse(&line).is_ok() {
-                let local: DateTime<Local> = Local::now();
+        while let Ok((local, line)) = rx.try_recv() {
+            if let Ok(msg) = nmea.parse(&line) {
                 let time_str = local.to_rfc3339_opts(SecondsFormat::Secs, true);
 
                 messages.insert(
@@ -203,6 +212,13 @@ fn main() -> Result<(), Error> {
 
                 while messages.len() > 100 {
                     messages.pop();
+                }
+
+                match msg {
+                    nmea::SentenceType::RMC => {
+                        rmc_datetime = local.naive_utc();
+                    }
+                    _ => {}
                 }
             }
         }
@@ -234,7 +250,7 @@ fn main() -> Result<(), Error> {
 
                 msgs.push(Spans::from(format!(
                     "datetime   : {}\n",
-                    option_str(datetime_str(&nmea)),
+                    option_str(datetime_str(&nmea, rmc_datetime)),
                 )));
                 msgs.push(Spans::from(format!(
                     "latlonalt  : {}\n",
