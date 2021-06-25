@@ -97,8 +97,8 @@ mod util {
             }
         }
 
-        pub fn next(&self) -> Result<Event<Key>, mpsc::RecvError> {
-            self.rx.recv()
+        pub fn next(&self) -> Result<Event<Key>, mpsc::TryRecvError> {
+            self.rx.try_recv()
         }
 
         pub fn disable_exit_key(&mut self) {
@@ -197,7 +197,7 @@ fn main() -> Result<(), Error> {
     let mut messages = Vec::new();
     let mut rmc_datetime = Utc::now().naive_utc();
 
-    loop {
+    'outer: loop {
         while let Ok((local, line)) = rx.try_recv() {
             if let Ok(msg) = nmea.parse(&line) {
                 let time_str = local.to_rfc3339_opts(SecondsFormat::Secs, true);
@@ -223,9 +223,9 @@ fn main() -> Result<(), Error> {
             }
         }
 
-        if let Ok(Event::Input(input)) = events.next() {
+        while let Ok(Event::Input(input)) = events.next() {
             if let Key::Char('q') = input {
-                break;
+                break 'outer;
             }
         }
 
@@ -302,6 +302,7 @@ fn main() -> Result<(), Error> {
                 f.render_widget(paragraph, body_rect);
             }
         })?;
+        thread::sleep(std::time::Duration::from_millis(200));
     }
 
     terminal.clear()?;
